@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Cooldown: do not open update PRs for versions published in the last 3 days,
+    # matching the pnpm minimumReleaseAge, so compromised releases age out first.
+    cooldown:
+      default-days: 3
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3

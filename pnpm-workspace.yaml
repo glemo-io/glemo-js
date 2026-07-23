@@ -1,5 +1,15 @@
 packages:
   - packages/*
+
+# Supply-chain hardening.
+# Cooldown: never resolve a dependency version younger than this, so a freshly
+# compromised release cannot reach us the moment it is published. 1 day catches the
+# common case (compromises are usually flagged within hours). Raise toward 4320
+# (3 days) once the dependency tree has matured past its just-published transitives.
+minimumReleaseAge: 1440 # minutes = 1 day
+
+# Build-script allowlist (default-deny): only these packages may run install/build
+# scripts. Everything else is blocked, so a malicious postinstall never executes.
 allowBuilds:
   '@biomejs/biome': true
   esbuild: true
