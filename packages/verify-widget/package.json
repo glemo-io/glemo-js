@@ -1,6 +1,6 @@
 {
   "name": "@glemo/verify-widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drop-in <glemo-verify> web component that verifies a credential live from any page.",
   "license": "MIT",
   "homepage": "https://glemo.io/docs",
@@ -19,7 +19,11 @@
     "embed"
   ],
   "type": "module",
-  "sideEffects": ["./src/index.ts", "./dist/index.js", "./dist/index.global.js"],
+  "sideEffects": [
+    "./src/index.ts",
+    "./dist/index.js",
+    "./dist/index.global.js"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -38,7 +42,12 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": ["dist", "CHANGELOG.md", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,iife --global-name GlemoVerify --dts --clean --minify",
     "prepack": "pnpm build",
