@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# build artifacts (packages build to dist on prepack; never committed)
+packages/*/dist/
+*.tsbuildinfo
+
+# test / coverage
+coverage/
+
+# the FULL backend contract is a local dev artifact only: never commit it here (public repo).
+# the curated PUBLIC subset (openapi/openapi.public.json) IS tracked (Plan 02).
+openapi/openapi.json
+
+# env / secrets
+.env*
+!.env.example
+
+# os / editor
+.DS_Store

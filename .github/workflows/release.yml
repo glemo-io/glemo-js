@@ -1,0 +1,40 @@
+name: release
+# Releases the packages to npm with Changesets and OIDC Trusted Publishing.
+# There is NO long-lived npm token: CI authenticates to npm over OIDC, and npm
+# attaches a public provenance attestation to each published version.
+#
+# [I] (founder, one time): on npmjs.com, link a Trusted Publisher for each package
+# (Settings -> Trusted Publisher -> GitHub Actions, repo glemo-io/glemo-js, workflow
+# release.yml). Until that is linked, the publish step fails with an auth error.
+#
+# On a normal push to main, Changesets opens or updates a "Version Packages" pull
+# request. Merging that pull request runs the publish.
+on:
+  push:
+    branches: [main]
+concurrency: release-${{ github.ref }}
+permissions:
+  contents: write # Changesets opens the version pull request
+  pull-requests: write # Changesets opens the version pull request
+  id-token: write # OIDC: npm trusted publishing + provenance, no long-lived token
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm check:pack
+      - uses: changesets/action@v1
+        with:
+          version: pnpm version
+          publish: pnpm release
+        env:
+          NPM_CONFIG_PROVENANCE: "true"

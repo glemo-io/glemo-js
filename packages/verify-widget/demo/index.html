@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>glemo-verify embed demo</title>
+    <style>
+      /* estilos hostiles del host: no deben afectar al widget */
+      * { font-family: "Comic Sans MS", cursive; color: red !important; }
+      body { background: #fff; padding: 40px; }
+    </style>
+  </head>
+  <body>
+    <h1>Host page</h1>
+    <glemo-verify
+      credential-id="PON-AQUI-UN-UUID"
+      publishable-key="glemo_test_TU_KEY"
+      base-url="http://localhost:3000"
+    ></glemo-verify>
+    <glemo-verify
+      credential-id="PON-AQUI-UN-UUID"
+      publishable-key="glemo_test_TU_KEY"
+      base-url="http://localhost:3000"
+      label-valid="Verificada"
+      style="--glemo-verify: oklch(0.7 0.15 250); --glemo-radius: 999px"
+    ></glemo-verify>
+    <script src="../dist/index.global.js"></script>
+  </body>
+</html>

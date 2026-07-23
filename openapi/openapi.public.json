@@ -1,0 +1,794 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Glemo API",
+    "version": "0.1.0",
+    "description": "Glemo is a credential verification network: one API to verify\ncredentials from **any issuer** (W3C Verifiable Credentials 2.0 / Open\nBadges 3.0) with a deterministic, cryptographic verdict.\n\n## Base URLs\n\n| Environment | URL |\n|-------------|-----|\n| Sandbox | `https://api-sandbox.glemo.io` |\n| Production | `https://api.glemo.io` |\n\n## Authentication\n\nSend your API key as a Bearer token:\n\n```bash\ncurl https://api-sandbox.glemo.io/verify \\\n  -H \"Authorization: Bearer glemo_test_...\"\n```\n\nNo key yet? `POST /sandbox/keys` provisions a test key plus two sample\ncredentials. No signup. Follow the\n[quickstart](https://glemo.io/docs/quickstart) for the 5-minute path.\n\n## Verdicts\n\nEvery verification resolves to exactly one of: `valid`, `revoked`,\n`expired`, `tampered`, `not_found`, `not_verifiable`. Never a maybe.\n\n## Errors & rate limits\n\nErrors are JSON with a stable `error` code (`unauthorized`, `forbidden`,\n`validation`, `rate_limited`). Throttled requests return `429` with a\n`Retry-After` header in seconds."
+  },
+  "servers": [
+    {
+      "url": "https://api-sandbox.glemo.io",
+      "description": "Sandbox"
+    },
+    {
+      "url": "https://api.glemo.io",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Verify",
+      "description": "The product: one call, a deterministic verdict."
+    },
+    {
+      "name": "Issue",
+      "description": "The supply side: issue verifiable credentials your recipients can hold and anyone can verify. Email is enough. No wallet required."
+    },
+    {
+      "name": "Sandbox",
+      "description": "Self-serve test keys and sample credentials. No signup, rate-limited."
+    },
+    {
+      "name": "Trust marks",
+      "description": "Portable \"Verified by Glemo\" badges tied to real verification events. Each links to a public, server-backed proof."
+    },
+    {
+      "name": "Public verification",
+      "description": "Verify a credential from a share link. No API key, rate-limited, no PII."
+    },
+    {
+      "name": "Relying parties",
+      "description": "Manage your relying parties, API keys, verification history and usage."
+    },
+    {
+      "name": "Status lists",
+      "description": "W3C Status List 2021 credentials: the standard revocation mechanism."
+    },
+    {
+      "name": "Reputation",
+      "description": "Issuer reputation from real network activity: the signal only the center of the network can compute."
+    },
+    {
+      "name": "System",
+      "description": "Service health."
+    }
+  ],
+  "components": {
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/public/trust-marks/{id}": {
+      "get": {
+        "tags": [
+          "Trust marks"
+        ],
+        "summary": "Get trust mark proof",
+        "description": "The public, server-backed proof a badge links to: verdict, method, issuer and verification date. No API key, no PII.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "markId": {
+                      "type": "string"
+                    },
+                    "verdict": {
+                      "type": "string"
+                    },
+                    "method": {
+                      "type": "string"
+                    },
+                    "issuerRef": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "verifiedAt": {
+                      "type": "string"
+                    },
+                    "relyingPartyName": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "markId",
+                    "verdict",
+                    "method",
+                    "issuerRef",
+                    "verifiedAt",
+                    "relyingPartyName"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/verify": {
+      "post": {
+        "tags": [
+          "Verify"
+        ],
+        "summary": "Verify a credential",
+        "description": "`byHash` verifies a registered credential by id; `byVC` verifies a portable VC-JWT (or selectively-disclosed SD-JWT presentation) from any issuer; `byZkTls` verifies a credential from a NON-integrated issuer via a zkTLS proof and Glemo's curated schema registry; `byImage` matches a credential image by hash and runs anti-fraud signal analysis (heuristics and EXIF). Every verdict includes an anti-fraud `risk` score.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "byHash",
+                      "byVC",
+                      "byZkTls",
+                      "byImage"
+                    ]
+                  },
+                  "credentialId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "jwt": {
+                    "type": "string"
+                  },
+                  "domain": {
+                    "type": "string",
+                    "example": "coursera.org"
+                  },
+                  "proof": {
+                    "type": "object",
+                    "properties": {
+                      "engine": {
+                        "type": "string",
+                        "example": "reclaim"
+                      },
+                      "payload": {
+                        "nullable": true,
+                        "description": "Proof payload as produced by the zkTLS engine"
+                      }
+                    },
+                    "required": [
+                      "engine"
+                    ]
+                  },
+                  "imageBase64": {
+                    "type": "string",
+                    "description": "Credential image (PNG/JPEG) or PDF, base64. Max 2 MB decoded."
+                  }
+                },
+                "required": [
+                  "method"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verdict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "checks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "ok"
+                        ]
+                      }
+                    },
+                    "issuer": {
+                      "type": "string"
+                    },
+                    "claims": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "risk": {
+                      "type": "object",
+                      "properties": {
+                        "score": {
+                          "type": "number"
+                        },
+                        "signals": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "score",
+                        "signals"
+                      ],
+                      "description": "Anti-fraud risk score 0-100. A signal, never a verdict override."
+                    },
+                    "latencyMs": {
+                      "type": "number",
+                      "description": "Measured server-side verification time in milliseconds."
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "checks",
+                    "latencyMs"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "402": {
+            "description": "Monthly quota exceeded (block-policy plans). Upgrade to continue."
+          },
+          "403": {
+            "description": "Forbidden (missing scope or plan feature)"
+          }
+        }
+      }
+    },
+    "/issue": {
+      "post": {
+        "tags": [
+          "Issue"
+        ],
+        "summary": "Issue a credential",
+        "description": "Issues a W3C VC 2.0 / Open Badges 3.0 credential (VC-JWT plus a selectively-disclosable SD-JWT), anchors it, and, for email recipients, delivers it with a public verification link. Recipients don't need a wallet: an email address is enough.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipient": {
+                    "type": "object",
+                    "properties": {
+                      "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "ada@university.edu"
+                      },
+                      "did": {
+                        "type": "string",
+                        "example": "did:web:alice.example.com"
+                      },
+                      "name": {
+                        "type": "string",
+                        "example": "Ada Lovelace"
+                      }
+                    }
+                  },
+                  "achievement": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "example": "Avalanche Fundamentals"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "criteria": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "validUntil": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "soulbound": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "recipient",
+                  "achievement"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Credential issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "credentialId": {
+                      "type": "string"
+                    },
+                    "subjectId": {
+                      "type": "string"
+                    },
+                    "publicUrl": {
+                      "type": "string"
+                    },
+                    "jwt": {
+                      "type": "string"
+                    },
+                    "sdJwt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "credentialId",
+                    "subjectId",
+                    "publicUrl",
+                    "jwt",
+                    "sdJwt"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/public/verifications/{credentialId}": {
+      "get": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "Verify a shared credential",
+        "description": "No auth. Used by share links and QR codes. Rate-limited; the response never contains PII.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "credentialId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verdict (not_found is a verdict, never 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "issuerDid": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "validFrom": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "validUntil": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "checkedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "issuerDid",
+                    "validFrom",
+                    "validUntil",
+                    "checkedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/credentials/{credentialId}": {
+      "get": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "Public display data for a shared credential",
+        "description": "No auth. Powers the public credential page: verdict + the shareable render (name, achievement, issuer, template). Rate-limited. Exposes no email, subjectId or subject DID.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "credentialId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Display payload (not_found is a status, never 404)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "credentialId": {
+                      "type": "string"
+                    },
+                    "display": {
+                      "type": "object",
+                      "properties": {
+                        "recipientName": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "achievementName": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "issueDate": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "recipientName",
+                        "achievementName",
+                        "issueDate"
+                      ]
+                    },
+                    "render": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "background": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "xPct": {
+                                "type": "number"
+                              },
+                              "yPct": {
+                                "type": "number"
+                              },
+                              "fontSizePx": {
+                                "type": "number"
+                              },
+                              "weight": {
+                                "type": "string"
+                              },
+                              "align": {
+                                "type": "string"
+                              },
+                              "color": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "xPct",
+                              "yPct",
+                              "fontSizePx",
+                              "weight",
+                              "align",
+                              "color"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "background",
+                        "fields"
+                      ]
+                    },
+                    "issuer": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "logoUrl": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "websiteUrl": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "brandColor": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "whiteLabel": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "logoUrl",
+                        "websiteUrl",
+                        "brandColor",
+                        "whiteLabel"
+                      ]
+                    },
+                    "checks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "ok"
+                        ]
+                      }
+                    },
+                    "validFrom": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "validUntil": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "checkedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "credentialId",
+                    "display",
+                    "render",
+                    "issuer",
+                    "checks",
+                    "validFrom",
+                    "validUntil",
+                    "checkedAt"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public/credentials/{credentialId}/disclosable": {
+      "get": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "List the selectively-disclosable fields of a shared credential",
+        "description": "No auth. Powers the holder's selective-presentation UI: which achievement fields (name, description, criteria) can be revealed, with their values. Rate-limited. 404 when the credential has no SD-JWT.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "credentialId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disclosable fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "disclosable": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "field": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "field",
+                          "value"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "disclosable"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Credential not found or not selectively presentable"
+          }
+        }
+      }
+    },
+    "/public/credentials/{credentialId}/present": {
+      "post": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "Generate a selective-disclosure presentation",
+        "description": "No auth. The holder chooses which achievement fields to reveal; the response is an SD-JWT presentation that discloses ONLY those fields (hidden fields never travel). Rate-limited. 404 when the credential has no SD-JWT.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "credentialId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reveal": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Achievement fields to disclose. Unknown fields are ignored.",
+                    "example": [
+                      "name"
+                    ]
+                  }
+                },
+                "required": [
+                  "reveal"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SD-JWT presentation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "presentation": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "presentation"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Credential not found or not selectively presentable"
+          }
+        }
+      }
+    },
+    "/sandbox/keys": {
+      "post": {
+        "tags": [
+          "Sandbox"
+        ],
+        "summary": "Create a sandbox key",
+        "description": "Self-serve: returns a test API key plus one valid and one revoked sample credential. Rate-limited (5/hour per IP).",
+        "responses": {
+          "201": {
+            "description": "Test key + sample credential ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "credentials": {
+                      "type": "object",
+                      "properties": {
+                        "valid": {
+                          "type": "string"
+                        },
+                        "revoked": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "valid",
+                        "revoked"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "apiKey",
+                    "credentials"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

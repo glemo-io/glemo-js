@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@glemo/sdk": ["./packages/sdk/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src", "scripts"]
+}

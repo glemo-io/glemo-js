@@ -1,0 +1,54 @@
+{
+  "name": "@glemo/verify-widget",
+  "version": "0.1.0",
+  "description": "Drop-in <glemo-verify> web component that verifies a credential live from any page.",
+  "license": "MIT",
+  "homepage": "https://glemo.io/docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glemo-io/glemo-js.git",
+    "directory": "packages/verify-widget"
+  },
+  "keywords": [
+    "glemo",
+    "verifiable-credentials",
+    "verification",
+    "web-component",
+    "custom-element",
+    "widget",
+    "embed"
+  ],
+  "type": "module",
+  "sideEffects": ["./src/index.ts", "./dist/index.js", "./dist/index.global.js"],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./global": "./dist/index.global.js"
+  },
+  "unpkg": "dist/index.global.js",
+  "jsdelivr": "dist/index.global.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": ["dist", "CHANGELOG.md", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,iife --global-name GlemoVerify --dts --clean --minify",
+    "prepack": "pnpm build",
+    "check:size": "node scripts/check-size.mjs",
+    "check:pack": "publint --strict && attw --pack --ignore-rules cjs-resolves-to-esm --exclude-entrypoints ./global"
+  },
+  "dependencies": {
+    "@glemo/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  }
+}

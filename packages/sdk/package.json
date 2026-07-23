@@ -1,0 +1,58 @@
+{
+  "name": "@glemo/sdk",
+  "version": "0.2.0",
+  "description": "The Glemo SDK: verify and issue credentials from any issuer with one call.",
+  "license": "MIT",
+  "homepage": "https://glemo.io/docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glemo-io/glemo-js.git",
+    "directory": "packages/sdk"
+  },
+  "keywords": [
+    "glemo",
+    "verifiable-credentials",
+    "credentials",
+    "verification",
+    "open-badges",
+    "did",
+    "sdk"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": ["dist", "CHANGELOG.md", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "prepack": "pnpm build",
+    "gen:schema": "openapi-typescript ../../openapi/openapi.public.json -o src/schema.d.ts",
+    "check:pack": "publint --strict && attw --pack"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "tsup": "^8.5.0"
+  }
+}
