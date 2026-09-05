@@ -19,7 +19,7 @@
     "sync:openapi": "node scripts/sync-openapi.mjs",
     "build:openapi": "node scripts/build-public-openapi.mjs",
     "changeset": "changeset",
-    "version": "changeset version",
+    "version": "changeset version && pnpm format",
     "release": "changeset publish",
     "check:release": "node scripts/check-release-workflow.mjs"
   },

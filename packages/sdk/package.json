@@ -41,12 +41,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": [
-    "dist",
-    "CHANGELOG.md",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "CHANGELOG.md", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "prepack": "pnpm build",
