@@ -370,7 +370,15 @@
                   "type": "object",
                   "properties": {
                     "status": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "valid",
+                        "revoked",
+                        "expired",
+                        "tampered",
+                        "not_found",
+                        "not_verifiable"
+                      ]
                     },
                     "checks": {
                       "type": "array",
@@ -378,10 +386,35 @@
                         "type": "object",
                         "properties": {
                           "name": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "accreditation",
+                              "anchor",
+                              "claims_schema",
+                              "decode",
+                              "disclosure",
+                              "engine_available",
+                              "expiration",
+                              "issuer_binding",
+                              "issuer_present",
+                              "issuer_resolved",
+                              "lookup",
+                              "profile_known",
+                              "proof_valid",
+                              "provider_schema",
+                              "schema",
+                              "signature",
+                              "status",
+                              "subject_binding",
+                              "unsupported",
+                              "validity_period"
+                            ]
                           },
                           "ok": {
                             "type": "boolean"
+                          },
+                          "detail": {
+                            "type": "string"
                           }
                         },
                         "required": [

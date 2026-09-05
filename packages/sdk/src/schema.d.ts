@@ -59,6 +59,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/orgs/by-domain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resolve an organization by its custom verify domain */
+        get: {
+            parameters: {
+                query: {
+                    host: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Branding for the host */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            org?: unknown;
+                        };
+                    };
+                };
+                /** @description No organization owns this host */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            message?: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+                /** @description Validation error */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            message?: string;
+                            details?: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/.well-known/jwks.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The issuer's JSON Web Key Set */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description JWK Set */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            keys: {
+                                [key: string]: unknown;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/verify": {
         parameters: {
             query?: never;
@@ -70,7 +176,7 @@ export interface paths {
         put?: never;
         /**
          * Verify a credential
-         * @description `byHash` verifies a registered credential by id; `byVC` verifies a portable VC-JWT (or selectively-disclosed SD-JWT presentation) from any issuer; `byZkTls` verifies a credential from a NON-integrated issuer via a zkTLS proof and Glemo's curated schema registry; `byImage` matches a credential image by hash and runs anti-fraud signal analysis (heuristics and EXIF). Every verdict includes an anti-fraud `risk` score.
+         * @description `byHash` verifies a registered credential by id; `byVC` verifies a portable VC-JWT (or selectively-disclosed SD-JWT presentation) from any issuer; `byZkTls` verifies a credential from a NON-integrated issuer via a zkTLS proof and Glemo's curated schema registry; `byImage` reads the credential baked into the image (Open Badges 3.0) and verifies it cryptographically, falling back to the verification QR the certificate carries, which names an exact credential and survives a screenshot but says nothing about the file. An image that carries neither returns `not_verifiable`, never `not_found`: a file we cannot read may still depict a credential that exists, and a fuzzy match must never produce a cryptographic verdict. It also runs anti-fraud signal analysis (heuristics and EXIF). Every verdict includes an anti-fraud `risk` score.
          */
         post: {
             parameters: {
@@ -108,10 +214,13 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            status: string;
+                            /** @enum {string} */
+                            status: "valid" | "revoked" | "expired" | "tampered" | "not_found" | "not_verifiable";
                             checks: {
-                                name: string;
+                                /** @enum {string} */
+                                name: "accreditation" | "anchor" | "claims_schema" | "decode" | "disclosure" | "engine_available" | "expiration" | "issuer_binding" | "issuer_present" | "issuer_resolved" | "lookup" | "profile_known" | "proof_valid" | "provider_schema" | "schema" | "signature" | "status" | "subject_binding" | "unsupported" | "validity_period";
                                 ok: boolean;
+                                detail?: string;
                             }[];
                             issuer?: string;
                             claims?: {
@@ -124,6 +233,69 @@ export interface paths {
                             };
                             /** @description Measured server-side verification time in milliseconds. */
                             latencyMs: number;
+                            /**
+                             * @description Which layer produced an image verdict. `baked` verified a signed credential carried inside the file. `qr` resolved the credential the certificate points at, which survives a screenshot but says nothing about the file. Absent for the other methods, and absent when neither layer could read the image.
+                             * @enum {string}
+                             */
+                            imageLayer?: "baked" | "qr";
+                            /** @description Who and what the credential names. Present when the verdict came from a credential this deployment hosts (`byHash`, and the QR layer of `byImage`). Show it NEXT TO the verdict: a bare `valid` is not actionable for someone holding a document, because a genuine QR can be photographed off a real certificate and placed on a forged one, and the mismatch is only visible if the verifier can read who the credential is actually about. Never includes email or the subject DID. */
+                            subject?: {
+                                recipientName: string | null;
+                                achievementName: string | null;
+                            };
+                            /** @description Signed C2PA provenance the IMAGE carries about itself: who produced it, and whether it was edited after production. Absent when the file has no manifest, which is the common case (uploads, screenshots and platform transforms strip metadata) and is NOT evidence of anything. */
+                            imageProvenance?: {
+                                producer: string | null;
+                                edited: boolean;
+                            };
+                            /** @description The verification result in the shape W3C VCDM 2.0 section 7.1 mandates, with problem details per section 7.2 (RFC 9457). Each absent fact carries its reason: a fact we cannot compute is null with a warning, never false. Errors are unrecoverable (cryptography, data model); warnings are for status and validity, where what to do is your decision. `provenance` is ours: no published vocabulary describes how a credential reached the verifier. */
+                            report: {
+                                status: boolean;
+                                mediaType: string;
+                                controller: string | null;
+                                warnings: {
+                                    type: string;
+                                    title?: string;
+                                    detail?: string;
+                                }[];
+                                errors: {
+                                    type: string;
+                                    title?: string;
+                                    detail?: string;
+                                }[];
+                                validFrom: {
+                                    verified: boolean;
+                                    value: string | null;
+                                };
+                                validUntil: {
+                                    verified: boolean;
+                                    value: string | null;
+                                };
+                                credentialStatus: {
+                                    purpose: string;
+                                    status: number;
+                                }[];
+                                proof: {
+                                    verified: boolean;
+                                    value: string | null;
+                                }[];
+                                /** @enum {string} */
+                                provenance: "wallet" | "zktls" | "artifact" | "registry";
+                                observations: {
+                                    issuerTrusted: {
+                                        verified: boolean;
+                                        value: boolean | null;
+                                    };
+                                    subjectBound: {
+                                        verified: boolean;
+                                        value: boolean | null;
+                                    };
+                                };
+                            };
+                            /** @description A signed record of this verification: what you checked, what came back, and when. A Security Event Token (RFC 8417), typed secevent+jwt, with no expiry because it describes something that already happened. Verify it against /.well-known/jwks.json with any JWT library: no API key and no call to us. Present on every terminal verdict, including the ones that failed. We keep no copy. */
+                            signedEvidence?: string;
+                            /** @description Whether the IMAGE itself was cryptographically verified, as opposed to the credential it refers to. False for `qr`: a real QR can be pasted onto a forged certificate, so a valid verdict there is about the credential and must not be presented as proof the picture is genuine. */
+                            imageAuthenticated?: boolean;
                         };
                     };
                 };
@@ -182,7 +354,7 @@ export interface paths {
                         recipient: {
                             /**
                              * Format: email
-                             * @example ada@university.edu
+                             * @example ada@example.com
                              */
                             email?: string;
                             /** @example did:web:alice.example.com */
@@ -193,23 +365,37 @@ export interface paths {
                         achievement: {
                             /** @example Avalanche Fundamentals */
                             name: string;
+                            /** @example Completed the fundamentals track. */
                             description?: string;
+                            /**
+                             * @description What the recipient had to do. Markdown is allowed and it is rendered inline: Open Badges 3.0 expects criteria to travel with the credential rather than as a link. Required by the OpenBadgeCredential profile.
+                             * @example Attend every session and pass the final assessment.
+                             */
                             criteria?: string;
                         };
                         /** Format: date-time */
                         validUntil?: string;
                         soulbound?: boolean;
+                        /** @description false issues silently: you deliver the publicUrl yourself. */
+                        sendEmail?: boolean;
+                        /**
+                         * @description Your own retry key, scoped to your account. Sending the same key again returns the credential the first call issued, with 200 and duplicate: true, instead of issuing a second one. A retry that arrives while the first call is still signing gets 409 issue_in_flight: try again in a moment.
+                         * @example invoice-2026-0042
+                         */
+                        idempotencyKey?: string;
                     };
                 };
             };
             responses: {
-                /** @description Credential issued */
-                201: {
+                /** @description A previous call with this idempotencyKey already issued this credential. Nothing was issued now. */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
+                            /** @example true */
+                            duplicate?: boolean;
                             credentialId: string;
                             subjectId: string;
                             publicUrl: string;
@@ -217,6 +403,30 @@ export interface paths {
                             sdJwt: string;
                         };
                     };
+                };
+                /** @description Credential issued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @example true */
+                            duplicate?: boolean;
+                            credentialId: string;
+                            subjectId: string;
+                            publicUrl: string;
+                            jwt: string;
+                            sdJwt: string;
+                        };
+                    };
+                };
+                /** @description The credential profile requires fields the request did not carry */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
                 /** @description Unauthorized */
                 401: {
@@ -227,6 +437,13 @@ export interface paths {
                 };
                 /** @description Forbidden */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description An issuance with this idempotencyKey is still in flight. It has no credential id yet, so there is nothing truthful to return: retry shortly. */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -326,15 +543,22 @@ export interface paths {
                             render: {
                                 background: string | null;
                                 fields: {
-                                    key: string;
+                                    pointer: string;
+                                    kind: string;
+                                    overflow: string;
                                     xPct: number;
                                     yPct: number;
+                                    widthPct: number;
                                     fontSizePx: number;
                                     weight: string;
                                     align: string;
                                     color: string;
+                                    locked: boolean;
                                 }[];
                             } | null;
+                            credential: {
+                                [key: string]: unknown;
+                            };
                             issuer: {
                                 name: string | null;
                                 logoUrl: string | null;
@@ -362,6 +586,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/verify/issuers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Supported issuers (the curated verification catalog)
+         * @description Active issuers Glemo can verify via zkTLS, with the claims each verification promises and whether the mapping is live or sandbox. Public and unauthenticated.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    q?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The catalog, optionally filtered by name or domain */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            providers: {
+                                name: string;
+                                domain: string;
+                                sandbox: boolean;
+                                claims: string[];
+                            }[];
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Rate limited */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/achievements/{achievementId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The achievement a credential asserts
+         * @description No auth. This is the URL that appears as `credentialSubject.achievement.id` inside every credential of this achievement, and it resolves to the Open Badges 3.0 Achievement object. Archived achievements still resolve: credentials already issued point here forever.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    achievementId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The Achievement as JSON-LD */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Achievement"];
+                    };
+                };
+                /** @description No such achievement */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/credentials/{credentialId}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The credential image
+         * @description The rendered certificate. It carries a QR pointing at this credential's public verification page, so uploading it to `POST /verify` with `byImage` returns the credential's real verdict even after a screenshot. It does NOT embed the signed credential: this route needs no authentication, and the signed credential's subject is the recipient's address. The issuer download (`format=baked-png`, authenticated) is the Open Badges 3.0 baked file.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    credentialId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The rendered PNG */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": unknown;
+                    };
+                };
+                /** @description The renderer is unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/credentials/{credentialId}/disclosable": {
         parameters: {
             query?: never;
@@ -371,7 +747,7 @@ export interface paths {
         };
         /**
          * List the selectively-disclosable fields of a shared credential
-         * @description No auth. Powers the holder's selective-presentation UI: which achievement fields (name, description, criteria) can be revealed, with their values. Rate-limited. 404 when the credential has no SD-JWT.
+         * @description No auth. Powers the holder's selective-presentation UI: which claims the credential profile makes disclosable, with their values and label keys. Rate-limited. 404 when the credential has no SD-JWT.
          */
         get: {
             parameters: {
@@ -392,8 +768,11 @@ export interface paths {
                     content: {
                         "application/json": {
                             disclosable: {
+                                /** @description The key the holder names this claim by. */
                                 field: string;
                                 value: string;
+                                /** @description The i18n key for this claim's label, declared by the credential profile. Clients that do not know it should fall back to showing the field key. */
+                                labelKey: string;
                             }[];
                         };
                     };
@@ -525,7 +904,22 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        Achievement: {
+            "@context": string[];
+            id: string;
+            type: string[];
+            name: string;
+            description: string;
+            criteria: {
+                narrative: string;
+            };
+            achievementType: string;
+            alignment?: {
+                [key: string]: unknown;
+            }[];
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
