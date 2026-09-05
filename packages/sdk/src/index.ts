@@ -100,6 +100,15 @@ export interface VerifyResult {
   imageProvenance?: { producer: string | null; edited: boolean };
   /** The separated facts. Added in 0.3.0; absent from older deployments. */
   report?: VerifyReport;
+  /** A signed record of this verification: what you checked, what came back, and
+   *  when. A Security Event Token (RFC 8417), typed secevent+jwt, with no expiry
+   *  because it describes something that already happened.
+   *
+   *  Verify it against the issuer's JWKS with any JWT library. It needs no API key
+   *  and no call to us, which is the point: it stays checkable if we are not here.
+   *  Present on every terminal verdict, including the ones that failed. We keep no
+   *  copy, so if you need it later, keep it. */
+  signedEvidence?: string;
   /** Measured server-side verification time in milliseconds. */
   latencyMs: number;
 }

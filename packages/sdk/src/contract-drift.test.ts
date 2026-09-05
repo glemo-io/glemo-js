@@ -44,10 +44,7 @@ function repoFile(...candidates: string[]): string {
 }
 
 function verifyResultKeys(): string[] {
-  const src = readFileSync(
-    repoFile("src/index.ts", "packages/sdk/src/index.ts"),
-    "utf8",
-  );
+  const src = readFileSync(repoFile("src/index.ts", "packages/sdk/src/index.ts"), "utf8");
   const start = src.indexOf("export interface VerifyResult {");
   expect(start, "VerifyResult was renamed or removed; this gate needs updating").toBeGreaterThan(
     -1,

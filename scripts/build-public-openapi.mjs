@@ -11,7 +11,10 @@ const dest = resolve(process.cwd(), "openapi/openapi.public.json");
 
 // The public developer API. Everything else (admin, orgs, relying-parties, metering,
 // status-lists, sandbox management, ...) is excluded.
-const PUBLIC_EXACT = new Set(["/verify", "/issue", "/sandbox/keys"]);
+// jwks.json is public on purpose: it is the URL a third party fetches to verify a
+// signed receipt without an API key and without asking us. Leaving it out of the
+// published contract would document a receipt nobody could check.
+const PUBLIC_EXACT = new Set(["/verify", "/issue", "/sandbox/keys", "/.well-known/jwks.json"]);
 const PUBLIC_PREFIXES = ["/public/"];
 const isPublicPath = (p) => PUBLIC_EXACT.has(p) || PUBLIC_PREFIXES.some((pre) => p.startsWith(pre));
 

@@ -265,6 +265,41 @@
         }
       }
     },
+    "/.well-known/jwks.json": {
+      "get": {
+        "tags": [
+          "Verify"
+        ],
+        "summary": "The issuer's JSON Web Key Set",
+        "responses": {
+          "200": {
+            "description": "JWK Set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "nullable": true
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "keys"
+                  ],
+                  "description": "RFC 7517 JWK Set. Every member carries kid, alg and use. The first key is the one this deployment signs with now; the rest are superseded keys, published so a token signed before a rotation stays verifiable. A private half is never present."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/verify": {
       "post": {
         "tags": [
@@ -617,6 +652,10 @@
                         "observations"
                       ],
                       "description": "The verification result in the shape W3C VCDM 2.0 section 7.1 mandates, with problem details per section 7.2 (RFC 9457). Each absent fact carries its reason: a fact we cannot compute is null with a warning, never false. Errors are unrecoverable (cryptography, data model); warnings are for status and validity, where what to do is your decision. `provenance` is ours: no published vocabulary describes how a credential reached the verifier."
+                    },
+                    "signedEvidence": {
+                      "type": "string",
+                      "description": "A signed record of this verification: what you checked, what came back, and when. A Security Event Token (RFC 8417), typed secevent+jwt, with no expiry because it describes something that already happened. Verify it against /.well-known/jwks.json with any JWT library: no API key and no call to us. Present on every terminal verdict, including the ones that failed. We keep no copy."
                     },
                     "imageAuthenticated": {
                       "type": "boolean",
