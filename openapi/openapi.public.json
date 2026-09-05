@@ -54,7 +54,66 @@
     }
   ],
   "components": {
-    "schemas": {},
+    "schemas": {
+      "Achievement": {
+        "type": "object",
+        "properties": {
+          "@context": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "criteria": {
+            "type": "object",
+            "properties": {
+              "narrative": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "narrative"
+            ]
+          },
+          "achievementType": {
+            "type": "string"
+          },
+          "alignment": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "nullable": true
+              }
+            }
+          }
+        },
+        "required": [
+          "@context",
+          "id",
+          "type",
+          "name",
+          "description",
+          "criteria",
+          "achievementType"
+        ]
+      }
+    },
     "parameters": {}
   },
   "paths": {
@@ -122,13 +181,97 @@
         }
       }
     },
+    "/public/orgs/by-domain": {
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "Resolve an organization by its custom verify domain",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "host",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Branding for the host",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No organization owns this host",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/verify": {
       "post": {
         "tags": [
           "Verify"
         ],
         "summary": "Verify a credential",
-        "description": "`byHash` verifies a registered credential by id; `byVC` verifies a portable VC-JWT (or selectively-disclosed SD-JWT presentation) from any issuer; `byZkTls` verifies a credential from a NON-integrated issuer via a zkTLS proof and Glemo's curated schema registry; `byImage` matches a credential image by hash and runs anti-fraud signal analysis (heuristics and EXIF). Every verdict includes an anti-fraud `risk` score.",
+        "description": "`byHash` verifies a registered credential by id; `byVC` verifies a portable VC-JWT (or selectively-disclosed SD-JWT presentation) from any issuer; `byZkTls` verifies a credential from a NON-integrated issuer via a zkTLS proof and Glemo's curated schema registry; `byImage` reads the credential baked into the image (Open Badges 3.0) and verifies it cryptographically, falling back to the verification QR the certificate carries, which names an exact credential and survives a screenshot but says nothing about the file. An image that carries neither returns `not_verifiable`, never `not_found`: a file we cannot read may still depict a credential that exists, and a fuzzy match must never produce a cryptographic verdict. It also runs anti-fraud signal analysis (heuristics and EXIF). Every verdict includes an anti-fraud `risk` score.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -243,12 +386,248 @@
                     "latencyMs": {
                       "type": "number",
                       "description": "Measured server-side verification time in milliseconds."
+                    },
+                    "imageLayer": {
+                      "type": "string",
+                      "enum": [
+                        "baked",
+                        "qr"
+                      ],
+                      "description": "Which layer produced an image verdict. `baked` verified a signed credential carried inside the file. `qr` resolved the credential the certificate points at, which survives a screenshot but says nothing about the file. Absent for the other methods, and absent when neither layer could read the image."
+                    },
+                    "subject": {
+                      "type": "object",
+                      "properties": {
+                        "recipientName": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "achievementName": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "recipientName",
+                        "achievementName"
+                      ],
+                      "description": "Who and what the credential names. Present when the verdict came from a credential this deployment hosts (`byHash`, and the QR layer of `byImage`). Show it NEXT TO the verdict: a bare `valid` is not actionable for someone holding a document, because a genuine QR can be photographed off a real certificate and placed on a forged one, and the mismatch is only visible if the verifier can read who the credential is actually about. Never includes email or the subject DID."
+                    },
+                    "imageProvenance": {
+                      "type": "object",
+                      "properties": {
+                        "producer": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "edited": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "producer",
+                        "edited"
+                      ],
+                      "description": "Signed C2PA provenance the IMAGE carries about itself: who produced it, and whether it was edited after production. Absent when the file has no manifest, which is the common case (uploads, screenshots and platform transforms strip metadata) and is NOT evidence of anything."
+                    },
+                    "report": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "boolean"
+                        },
+                        "mediaType": {
+                          "type": "string"
+                        },
+                        "controller": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        },
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "detail": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "type"
+                            ]
+                          }
+                        },
+                        "validFrom": {
+                          "type": "object",
+                          "properties": {
+                            "verified": {
+                              "type": "boolean"
+                            },
+                            "value": {
+                              "type": "string",
+                              "nullable": true
+                            }
+                          },
+                          "required": [
+                            "verified",
+                            "value"
+                          ]
+                        },
+                        "validUntil": {
+                          "type": "object",
+                          "properties": {
+                            "verified": {
+                              "type": "boolean"
+                            },
+                            "value": {
+                              "type": "string",
+                              "nullable": true
+                            }
+                          },
+                          "required": [
+                            "verified",
+                            "value"
+                          ]
+                        },
+                        "credentialStatus": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "purpose": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "purpose",
+                              "status"
+                            ]
+                          }
+                        },
+                        "proof": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "verified": {
+                                "type": "boolean"
+                              },
+                              "value": {
+                                "type": "string",
+                                "nullable": true
+                              }
+                            },
+                            "required": [
+                              "verified",
+                              "value"
+                            ]
+                          }
+                        },
+                        "provenance": {
+                          "type": "string",
+                          "enum": [
+                            "wallet",
+                            "zktls",
+                            "artifact",
+                            "registry"
+                          ]
+                        },
+                        "observations": {
+                          "type": "object",
+                          "properties": {
+                            "issuerTrusted": {
+                              "type": "object",
+                              "properties": {
+                                "verified": {
+                                  "type": "boolean"
+                                },
+                                "value": {
+                                  "type": "boolean",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "verified",
+                                "value"
+                              ]
+                            },
+                            "subjectBound": {
+                              "type": "object",
+                              "properties": {
+                                "verified": {
+                                  "type": "boolean"
+                                },
+                                "value": {
+                                  "type": "boolean",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "verified",
+                                "value"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "issuerTrusted",
+                            "subjectBound"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "mediaType",
+                        "controller",
+                        "warnings",
+                        "errors",
+                        "validFrom",
+                        "validUntil",
+                        "credentialStatus",
+                        "proof",
+                        "provenance",
+                        "observations"
+                      ],
+                      "description": "The verification result in the shape W3C VCDM 2.0 section 7.1 mandates, with problem details per section 7.2 (RFC 9457). Each absent fact carries its reason: a fact we cannot compute is null with a warning, never false. Errors are unrecoverable (cryptography, data model); warnings are for status and validity, where what to do is your decision. `provenance` is ours: no published vocabulary describes how a credential reached the verifier."
+                    },
+                    "imageAuthenticated": {
+                      "type": "boolean",
+                      "description": "Whether the IMAGE itself was cryptographically verified, as opposed to the credential it refers to. False for `qr`: a real QR can be pasted onto a forged certificate, so a valid verdict there is about the credential and must not be presented as proof the picture is genuine."
                     }
                   },
                   "required": [
                     "status",
                     "checks",
-                    "latencyMs"
+                    "latencyMs",
+                    "report"
                   ]
                 }
               }
@@ -285,7 +664,7 @@
                       "email": {
                         "type": "string",
                         "format": "email",
-                        "example": "ada@university.edu"
+                        "example": "ada@example.com"
                       },
                       "did": {
                         "type": "string",
@@ -306,10 +685,13 @@
                         "example": "Avalanche Fundamentals"
                       },
                       "description": {
-                        "type": "string"
+                        "type": "string",
+                        "example": "Completed the fundamentals track."
                       },
                       "criteria": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "What the recipient had to do. Markdown is allowed and it is rendered inline: Open Badges 3.0 expects criteria to travel with the credential rather than as a link. Required by the OpenBadgeCredential profile.",
+                        "example": "Attend every session and pass the final assessment."
                       }
                     },
                     "required": [
@@ -322,6 +704,17 @@
                   },
                   "soulbound": {
                     "type": "boolean"
+                  },
+                  "sendEmail": {
+                    "type": "boolean",
+                    "description": "false issues silently: you deliver the publicUrl yourself."
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "Your own retry key, scoped to your account. Sending the same key again returns the credential the first call issued, with 200 and duplicate: true, instead of issuing a second one. A retry that arrives while the first call is still signing gets 409 issue_in_flight: try again in a moment.",
+                    "example": "invoice-2026-0042"
                   }
                 },
                 "required": [
@@ -333,13 +726,17 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Credential issued",
+          "200": {
+            "description": "A previous call with this idempotencyKey already issued this credential. Nothing was issued now.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "duplicate": {
+                      "type": "boolean",
+                      "example": true
+                    },
                     "credentialId": {
                       "type": "string"
                     },
@@ -367,11 +764,55 @@
               }
             }
           },
+          "201": {
+            "description": "Credential issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "duplicate": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "credentialId": {
+                      "type": "string"
+                    },
+                    "subjectId": {
+                      "type": "string"
+                    },
+                    "publicUrl": {
+                      "type": "string"
+                    },
+                    "jwt": {
+                      "type": "string"
+                    },
+                    "sdJwt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "credentialId",
+                    "subjectId",
+                    "publicUrl",
+                    "jwt",
+                    "sdJwt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The credential profile requires fields the request did not carry"
+          },
           "401": {
             "description": "Unauthorized"
           },
           "403": {
             "description": "Forbidden"
+          },
+          "409": {
+            "description": "An issuance with this idempotencyKey is still in flight. It has no credential id yet, so there is nothing truthful to return: retry shortly."
           }
         }
       }
@@ -502,13 +943,22 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "key": {
+                              "pointer": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "overflow": {
                                 "type": "string"
                               },
                               "xPct": {
                                 "type": "number"
                               },
                               "yPct": {
+                                "type": "number"
+                              },
+                              "widthPct": {
                                 "type": "number"
                               },
                               "fontSizePx": {
@@ -522,16 +972,23 @@
                               },
                               "color": {
                                 "type": "string"
+                              },
+                              "locked": {
+                                "type": "boolean"
                               }
                             },
                             "required": [
-                              "key",
+                              "pointer",
+                              "kind",
+                              "overflow",
                               "xPct",
                               "yPct",
+                              "widthPct",
                               "fontSizePx",
                               "weight",
                               "align",
-                              "color"
+                              "color",
+                              "locked"
                             ]
                           }
                         }
@@ -540,6 +997,12 @@
                         "background",
                         "fields"
                       ]
+                    },
+                    "credential": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "nullable": true
+                      }
                     },
                     "issuer": {
                       "type": "object",
@@ -607,6 +1070,7 @@
                     "credentialId",
                     "display",
                     "render",
+                    "credential",
                     "issuer",
                     "checks",
                     "validFrom",
@@ -620,13 +1084,155 @@
         }
       }
     },
+    "/public/verify/issuers": {
+      "get": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "Supported issuers (the curated verification catalog)",
+        "description": "Active issuers Glemo can verify via zkTLS, with the claims each verification promises and whether the mapping is live or sandbox. Public and unauthenticated.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The catalog, optionally filtered by name or domain",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "domain": {
+                            "type": "string"
+                          },
+                          "sandbox": {
+                            "type": "boolean"
+                          },
+                          "claims": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "domain",
+                          "sandbox",
+                          "claims"
+                        ]
+                      }
+                    },
+                    "total": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "providers",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    },
+    "/public/achievements/{achievementId}": {
+      "get": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "The achievement a credential asserts",
+        "description": "No auth. This is the URL that appears as `credentialSubject.achievement.id` inside every credential of this achievement, and it resolves to the Open Badges 3.0 Achievement object. Archived achievements still resolve: credentials already issued point here forever.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "achievementId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Achievement as JSON-LD",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Achievement"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such achievement"
+          }
+        }
+      }
+    },
+    "/public/credentials/{credentialId}/image": {
+      "get": {
+        "tags": [
+          "Public verification"
+        ],
+        "summary": "The credential image",
+        "description": "The rendered certificate. It carries a QR pointing at this credential's public verification page, so uploading it to `POST /verify` with `byImage` returns the credential's real verdict even after a screenshot. It does NOT embed the signed credential: this route needs no authentication, and the signed credential's subject is the recipient's address. The issuer download (`format=baked-png`, authenticated) is the Open Badges 3.0 baked file.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "credentialId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rendered PNG",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The renderer is unavailable"
+          }
+        }
+      }
+    },
     "/public/credentials/{credentialId}/disclosable": {
       "get": {
         "tags": [
           "Public verification"
         ],
         "summary": "List the selectively-disclosable fields of a shared credential",
-        "description": "No auth. Powers the holder's selective-presentation UI: which achievement fields (name, description, criteria) can be revealed, with their values. Rate-limited. 404 when the credential has no SD-JWT.",
+        "description": "No auth. Powers the holder's selective-presentation UI: which claims the credential profile makes disclosable, with their values and label keys. Rate-limited. 404 when the credential has no SD-JWT.",
         "parameters": [
           {
             "schema": {
@@ -652,15 +1258,21 @@
                         "type": "object",
                         "properties": {
                           "field": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "The key the holder names this claim by."
                           },
                           "value": {
                             "type": "string"
+                          },
+                          "labelKey": {
+                            "type": "string",
+                            "description": "The i18n key for this claim's label, declared by the credential profile. Clients that do not know it should fall back to showing the field key."
                           }
                         },
                         "required": [
                           "field",
-                          "value"
+                          "value",
+                          "labelKey"
                         ]
                       }
                     }

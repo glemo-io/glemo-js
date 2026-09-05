@@ -4,7 +4,16 @@ type WidgetState =
   | { kind: "idle" }
   | { kind: "misconfigured" }
   | { kind: "loading" }
-  | { kind: "done"; status: string }
+  | {
+      kind: "done";
+      status: string;
+      /** Who the credential is about. A bare verdict cannot be checked against a
+       *  document in someone's hand. */
+      subject?: { recipientName: string | null; achievementName: string | null } | null;
+      /** Which layer answered an image verification. `qr` means the credential was
+       *  resolved from a code on the page, which says nothing about the page. */
+      imageLayer?: "baked" | "qr";
+    }
   | { kind: "error" };
 
 /** Brand defaults (same OKLCH values as @glemo/ui). Overridable via CSS vars. */
@@ -37,7 +46,22 @@ const STYLES = `
 .bad .dot { background: var(--glemo-danger); }
 .muted .dot { background: var(--glemo-muted); }
 .brand { color: var(--glemo-muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.who { font-weight: 600; }
+.what { color: var(--glemo-muted); }
+/* The caveat is deliberately not styled as an error: a QR verdict is a real verdict
+   about a real credential. What it is not is a statement about the piece of paper. */
+.caveat { color: var(--glemo-muted); font-size: 11px; font-style: italic; }
 `;
+
+/** Everything interpolated into the shadow root comes from the API, and the API
+ *  carries names people typed. Escaped rather than trusted. */
+function escapeHtml(text: string): string {
+  return text.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+  );
+}
 
 const DEFAULT_LABELS: Record<string, string> = {
   loading: "Verifying…",
@@ -112,7 +136,12 @@ export class GlemoVerifyElement extends HTMLElement {
         retries: 0,
       });
       const result = await glemo.verify({ credentialId });
-      this.#state = { kind: "done", status: result.status };
+      this.#state = {
+        kind: "done",
+        status: result.status,
+        subject: result.subject,
+        imageLayer: result.imageLayer,
+      };
     } catch {
       this.#state = { kind: "error" };
     }
@@ -134,11 +163,23 @@ export class GlemoVerifyElement extends HTMLElement {
             ? "misconfigured"
             : "loading";
     const tone = TONE[status] ?? "bad";
+    const done = s.kind === "done" ? s : null;
+    // The name, next to the verdict. The backend's own contract says why: a genuine
+    // QR can be photographed off a real certificate and placed on a forged one, and
+    // the mismatch is only visible if the reader can see who the credential is about.
+    const name = done?.subject?.recipientName;
+    const what = done?.subject?.achievementName;
+    // And the caveat, only for the layer that earns it. `baked` verified the file
+    // itself; `qr` only resolved the credential the page points at.
+    const scanned = done?.imageLayer === "qr";
     this.#root.innerHTML = `
       <style>${STYLES}</style>
       <span class="card ${tone}" role="status">
         <span class="dot"></span>
         <span>${this.#label(status)}</span>
+        ${name ? `<span class="who">${escapeHtml(name)}</span>` : ""}
+        ${what ? `<span class="what">${escapeHtml(what)}</span>` : ""}
+        ${scanned ? `<span class="caveat">scanned from the page, not the file</span>` : ""}
         <span class="brand">glemo</span>
       </span>`;
   }

@@ -16,7 +16,10 @@ export interface GlemoConfig {
 export type VerifyInput =
   | { credentialId: string }
   | { jwt: string }
-  | { domain: string; proof: { engine: string; payload: unknown } };
+  | { domain: string; proof: { engine: string; payload: unknown } }
+  // byImage. Absent until now, which meant the four image fields below described a
+  // method this package could not invoke.
+  | { imageBase64: string };
 
 /** One verification check and whether it passed. */
 export interface VerifyCheck {
@@ -35,12 +38,68 @@ export interface VerifyRisk {
  * derived from the backend's full OpenAPI contract, so the internal API surface is
  * never exposed through this package's types.
  */
+/** RFC 9457 problem details, as W3C VCDM 2.0 section 7.2 requires. `type` is a URL. */
+export interface VerifyProblem {
+  type: string;
+  title?: string;
+  detail?: string;
+}
+
+/** A fact and whether it held. `value: null` means the fact could not be computed,
+ *  which is NOT the same as false and must not be rendered as one. */
+export interface VerifyFact<T> {
+  verified: boolean;
+  value: T | null;
+}
+
+/** The verification in the shape W3C VCDM 2.0 section 7.1 mandates.
+ *
+ *  `status` here is a boolean, per that section. The verdict word stays at the root
+ *  of VerifyResult, where it always was. */
+export interface VerifyReport {
+  status: boolean;
+  mediaType: string;
+  controller: string | null;
+  /** Unrecoverable: cryptography and data model. */
+  errors: VerifyProblem[];
+  /** Recoverable, or yours to weigh: status and validity periods. */
+  warnings: VerifyProblem[];
+  validFrom: VerifyFact<string>;
+  validUntil: VerifyFact<string>;
+  credentialStatus: { purpose: string; status: number }[];
+  proof: VerifyFact<string>[];
+  /** How the credential reached the verifier. Glemo's own field: no published
+   *  vocabulary defines this. */
+  provenance: "wallet" | "zktls" | "artifact" | "registry";
+  observations: {
+    issuerTrusted: VerifyFact<boolean>;
+    subjectBound: VerifyFact<boolean>;
+  };
+}
+
 export interface VerifyResult {
   status: string;
   checks: VerifyCheck[];
   issuer?: string;
   claims?: Record<string, string>;
   risk?: VerifyRisk;
+  /** Who and what the credential names. Show it NEXT TO the verdict: a bare `valid`
+   *  is not actionable for someone holding a document, because a genuine QR can be
+   *  photographed off a real certificate and placed on a forged one, and the mismatch
+   *  is only visible if you can read who the credential is actually about. */
+  subject?: { recipientName: string | null; achievementName: string | null };
+  /** byImage only: which layer produced the verdict. `baked` verified a signed
+   *  credential inside the file; `qr` resolved the credential the certificate points
+   *  at, which survives a screenshot and says nothing about the file. */
+  imageLayer?: "baked" | "qr";
+  /** byImage only. Whether the IMAGE was cryptographically checked, as opposed to the
+   *  credential it refers to. False for `qr`. */
+  imageAuthenticated?: boolean;
+  /** Signed C2PA provenance the IMAGE carries about itself. Absent when the file has
+   *  no manifest, which is the common case and is NOT evidence of anything. */
+  imageProvenance?: { producer: string | null; edited: boolean };
+  /** The separated facts. Added in 0.3.0; absent from older deployments. */
+  report?: VerifyReport;
   /** Measured server-side verification time in milliseconds. */
   latencyMs: number;
 }
@@ -127,7 +186,9 @@ export function createGlemo(config: GlemoConfig): Glemo {
         ? { method: "byHash" as const, credentialId: input.credentialId }
         : "jwt" in input
           ? { method: "byVC" as const, jwt: input.jwt }
-          : { method: "byZkTls" as const, domain: input.domain, proof: input.proof };
+          : "imageBase64" in input
+            ? { method: "byImage" as const, imageBase64: input.imageBase64 }
+            : { method: "byZkTls" as const, domain: input.domain, proof: input.proof };
     return withRetries(config.retries ?? 1, () =>
       attempt((signal) => client.POST("/verify", { body, signal })),
     );

@@ -129,3 +129,49 @@ test("labels themeable by attribute", async () => {
   expect(el.shadowRoot!.textContent).toContain("Verified");
   el.remove();
 });
+
+// The contract says, in its own words, why `subject` exists: "a genuine QR can be
+// photographed off a real certificate and placed on a forged one". The widget painted
+// a bare `Verified` with no subject and no distinction between a signed file and a
+// scanned pointer, which is the exact confusion the backend documented and then the
+// only user-facing surface of this package enabled.
+// The contract says, in its own words, why `subject` exists: "a genuine QR can be
+// photographed off a real certificate and placed on a forged one". The widget painted
+// a bare `Verified` with no subject and no distinction between a signed file and a
+// scanned pointer, which is the exact confusion the backend documented and the only
+// user-facing surface of this package then enabled.
+test("a QR verdict is not presented as a verified document", async () => {
+  stubVerify({
+    status: "valid",
+    checks: [],
+    imageLayer: "qr",
+    imageAuthenticated: false,
+    subject: { recipientName: "Ana Garcia", achievementName: "Avalanche Fundamentals" },
+  });
+  const el = mount({
+    "credential-id": "22222222-2222-2222-2222-222222222222",
+    "publishable-key": "glemo_test_pk",
+  });
+  await settle();
+  const text = el.shadowRoot?.textContent ?? "";
+  expect(text).toContain("Ana Garcia");
+  expect(text).toMatch(/scanned/i);
+});
+
+test("a signed file names who it is about, without the scanned caveat", async () => {
+  stubVerify({
+    status: "valid",
+    checks: [],
+    imageLayer: "baked",
+    imageAuthenticated: true,
+    subject: { recipientName: "Ana Garcia", achievementName: "Avalanche Fundamentals" },
+  });
+  const el = mount({
+    "credential-id": "33333333-3333-3333-3333-333333333333",
+    "publishable-key": "glemo_test_pk",
+  });
+  await settle();
+  const text = el.shadowRoot?.textContent ?? "";
+  expect(text).toContain("Ana Garcia");
+  expect(text).not.toMatch(/scanned/i);
+});
