@@ -17,7 +17,12 @@ const required = [
   ["OIDC id-token permission", /id-token:\s*write/],
   ["provenance enabled", /NPM_CONFIG_PROVENANCE:\s*["']?true/],
   ["the Changesets action", /changesets\/action@/],
-  ["a publish command", /publish:\s*pnpm release/],
+  // `pnpm run`, not `pnpm`. This asserted /pnpm release/ and was green over a workflow
+  // that had never completed: `pnpm version` is pnpm's own command, not the script of
+  // that name, so the release died at ERR_PNPM_INVALID_VERSION_BUMP every time. The
+  // check pinned the broken spelling, which is worse than not checking.
+  ["a version command that runs the script", /version:\s*pnpm run version/],
+  ["a publish command that runs the script", /publish:\s*pnpm run release/],
 ];
 const forbidden = [["a long-lived npm token", /NPM_TOKEN|NODE_AUTH_TOKEN/]];
 

@@ -32,9 +32,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm check:pack
-      - uses: changesets/action@v2
+      # v1, not v2. The v2 action requires Changesets CLI v3 and refuses to run against
+      # the v2 CLI this repo pins; a dependabot bump to it was merged and reverted here.
+      # Moving the CLI is a major change to the release tooling, not a CI unblock.
+      - uses: changesets/action@v1
         with:
-          version: pnpm version
-          publish: pnpm release
+          # `pnpm run`, not `pnpm`. `pnpm version` is pnpm's OWN command, the one that
+          # bumps a version and demands an argument, so it never reached the script of
+          # the same name and died with ERR_PNPM_INVALID_VERSION_BUMP. This workflow had
+          # never completed: no push had reached this step before.
+          version: pnpm run version
+          publish: pnpm run release
         env:
           NPM_CONFIG_PROVENANCE: "true"
