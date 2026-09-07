@@ -1,6 +1,6 @@
 {
   "name": "@glemo/sdk",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "The Glemo SDK: verify and issue credentials from any issuer with one call.",
   "license": "MIT",
   "homepage": "https://glemo.io/docs",
