@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         # 22, not 20: package.json pins pnpm@11.5.2, which loads node:sqlite. That
         # builtin does not exist before Node 22, so pnpm crashed on startup and this
