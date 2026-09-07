@@ -1,6 +1,6 @@
 {
   "name": "@glemo/verify-widget",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Drop-in <glemo-verify> web component that verifies a credential live from any page.",
   "license": "MIT",
   "homepage": "https://glemo.io/docs",
