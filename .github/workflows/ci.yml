@@ -10,7 +10,11 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
+        # 22, not 20: package.json pins pnpm@11.5.2, which loads node:sqlite. That
+        # builtin does not exist before Node 22, so pnpm crashed on startup and this
+        # workflow had been failing since the pin, before it ran a single check.
+        # release.yml already said 22; this one was left behind.
+        with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
