@@ -12,6 +12,10 @@ name: release
 on:
   push:
     branches: [main]
+  # Retrying a release used to mean inventing a commit. What it usually waits on is
+  # something outside the repo: the npm Trusted Publisher link, or the org setting
+  # that lets Actions open a pull request. Neither is a code change.
+  workflow_dispatch:
 concurrency: release-${{ github.ref }}
 permissions:
   contents: write # Changesets opens the version pull request
